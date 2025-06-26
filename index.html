@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahsan Labs Image Generator</title>
+    <link rel="icon" type="image/png" href="https://i.ibb.co/VWWnR9DS/computer.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.15/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg-primary': '#121212',
+                        'bg-secondary': '#1e1e1e',
+                        'text-primary': '#e0e0e0',
+                        'text-muted': '#8a8a8a',
+                        'accent-primary': '#3b82f6',
+                        'accent-hover': '#1d4ed8',
+                    },
+                    borderRadius: {
+                        'custom': '12px',
+                    },
+                    boxShadow: {
+                        'custom': '0 4px 12px rgba(0, 0, 0, 0.3)',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                    },
+                    animation: {
+                        fadeIn: 'fadeIn 0.3s ease-in-out',
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        textarea,
+        select {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+        .security-alert {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .security-alert.show {
+            display: flex;
+        }
+
+        .security-message {
+            background: #1e1e1e;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .security-icon {
+            font-size: 48px;
+            color: #3b82f6;
+            margin-bottom: 16px;
+        }
+
+        .security-message h3 {
+            color: #e0e0e0;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .security-message p {
+            color: #8a8a8a;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .security-footer {
+            color: #8a8a8a;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body class="bg-bg-primary text-text-primary font-sans min-h-screen overflow-x-hidden">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const BLOCKED_CONTENT = ['sex', 'nude', 'porn', 'fuck', 'shit', 'bitch'];
+
+        const SecurityAlert = ({ show }) => {
+            if (!show) return null;
+            return (
+                <div className={`security-alert ${show ? 'show' : ''}`}>
+                    <div className="security-message">
+                        <div className="security-icon">
+                            <i className="fas fa-shield-alt"></i>
+                        </div>
+                        <h3>Access Restricted</h3>
+                        <p>Source code inspection and copying is not permitted.</p>
+                        <div className="security-footer">
+                            <small>© Protected by Ahsan Labs</small>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Header = React.forwardRef((props, ref) => (
+            <header ref={ref} className="fixed top-0 left-0 w-full bg-bg-secondary shadow-custom z-50 py-4 px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center">
+                    <a href="#" className="flex items-center text-text-primary no-underline">
+                        <img src="https://i.ibb.co/VWWnR9DS/computer.png" alt="Ahsan Labs Logo" className="w-11 h-11" />
+                        <span className="text-xl font-bold ml-3">Ahsan Labs Image Generator</span>
+                    </a>
+                </div>
+            </header>
+        ));
+
+        const Hero = () => (
+            <section className="text-center py-12 animate-fadeIn">
+                <h1 className="text-4xl md:text-5xl font-bold text-text-primary mb-3">Ahsan Labs Image Generator</h1>
+                <p className="text-text-muted max-w-2xl mx-auto text-base md:text-lg">
+                    Transform your ideas into stunning visuals with our advanced AI technology.
+                </p>
+            </section>
+        );
+
+        const Generator = ({ setGeneratedImage }) => {
+            const [prompt, setPrompt] = useState('');
+            const [charCount, setCharCount] = useState(0);
+            const [style, setStyle] = useState('');
+            const [ratio, setRatio] = useState('1:1');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [showFilterAlert, setShowFilterAlert] = useState(false);
+
+            const artStyles = [
+                { value: '', label: 'Default' },
+                { value: 'photorealistic', label: 'Photorealistic' },
+                { value: 'digital art', label: 'Digital Art' },
+                { value: 'anime', label: 'Anime' },
+                { value: 'minimalist', label: 'Minimalist' },
+                { value: 'watercolor', label: 'Watercolor' },
+                { value: 'oil painting', label: 'Oil Painting' },
+                { value: 'pixel art', label: 'Pixel Art' },
+                { value: 'surrealism', label: 'Surrealism' },
+                { value: 'cartoon', label: 'Cartoon' },
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'black and white', label: 'Black and White' },
+                { value: 'film noir', label: 'Film Noir' },
+                { value: 'vintage film', label: 'Vintage Film' },
+                { value: 'sci-fi cinematic', label: 'Sci-Fi Cinematic' },
+            ];
+
+            const quickPrompts = [
+                { text: 'A futuristic cityscape at night, cyberpunk style, neon lights', icon: 'fa-city' },
+                { text: 'A serene beach at sunrise, photorealistic, vibrant colors', icon: 'fa-umbrella-beach' },
+                { text: 'A majestic dragon in a fantasy forest, digital art, high detail', icon: 'fa-dragon' },
+                { text: 'A minimalist abstract background, soft colors, modern design', icon: 'fa-shapes' },
+            ];
+
+            const ratios = ['1:1', '16:9', '9:16'];
+
+            const handlePromptChange = (e) => {
+                const text = e.target.value.slice(0, 500);
+                setPrompt(text);
+                setCharCount(text.length);
+                if (BLOCKED_CONTENT.some(word => text.toLowerCase().includes(word))) {
+                    setShowFilterAlert(true);
+                    setPrompt('');
+                    setCharCount(0);
+                    setTimeout(() => setShowFilterAlert(false), 3000);
+                }
+            };
+
+            const setQuickPrompt = (text) => {
+                setPrompt(text);
+                setCharCount(text.length);
+                if (BLOCKED_CONTENT.some(word => text.toLowerCase().includes(word))) {
+                    setShowFilterAlert(true);
+                    setPrompt('');
+                    setCharCount(0);
+                    setTimeout(() => setShowFilterAlert(false), 3000);
+                }
+            };
+
+            const generateImage = async () => {
+                if (!prompt.trim()) {
+                    console.error('Please enter a prompt.');
+                    return;
+                }
+
+                setIsGenerating(true);
+                let finalPrompt = prompt;
+                if (style) finalPrompt += `, ${style} style`;
+
+                const url = 'https://1yjs1yldj7.execute-api.us-east-1.amazonaws.com/default/ai_image';
+                const params = new URLSearchParams({
+                    prompt: finalPrompt,
+                    aspect_ratio: ratio,
+                    link: 'imagexpro.com'
+                });
+
+                try {
+                    const response = await fetch(`${url}?${params.toString()}`, {
+                        method: 'GET',
+                        headers: {
+                            'accept': '*/*',
+                            'origin': 'https://www.editcream.com',
+                            'referer': 'https://www.editcream.com/',
+                        }
+                    });
+
+                    const data = await response.json();
+                    if (data.image_link) {
+                        setGeneratedImage(data.image_link);
+                        console.log('Image generated successfully!');
+                    } else {
+                        console.error('AWS API Response:', data);
+                    }
+                } catch (error) {
+                    console.error('Image Generation Error:', error.message);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            return (
+                <section className="bg-bg-secondary p-8 rounded-custom shadow-custom my-8 max-w-7xl mx-auto">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <i className="fas fa-pen-fancy"></i> Describe Your Image
+                            </label>
+                            <div className="relative">
+                                <textarea
+                                    id="prompt"
+                                    className="w-full p-4 border border-text-muted bg-bg-primary text-text-primary rounded-lg text-base resize-none h-36 focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 outline-none"
+                                    placeholder="A serene mountain landscape at sunset, photorealistic, high detail..."
+                                    value={prompt}
+                                    onChange={handlePromptChange}
+                                    maxLength={500}
+                                />
+                                <div className="absolute bottom-3 right-3 text-sm text-text-muted">
+                                    {charCount}/500
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6">
+                            <h3 className="text-sm font-medium flex items-center gap-2 mb-4">
+                                <i className="fas fa-rocket"></i> Quick Start Prompts
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {quickPrompts.map(({ text, icon }) => (
+                                    <button
+                                        key={text}
+                                        className="p-3 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-sm flex items-center gap-2 hover:bg-accent-primary hover:text-white hover:border-accent-primary transition-colors"
+                                        onClick={() => setQuickPrompt(text)}
+                                    >
+                                        <i className={`fas ${icon}`}></i> {text.slice(0, 20) + '...'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <button
+                            className="p-4 bg-accent-primary text-white rounded-lg text-base font-medium flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors disabled:bg-text-muted disabled:cursor-not-allowed"
+                            onClick={generateImage}
+                            disabled={isGenerating}
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Generating Image...
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fas fa-magic"></i> Generate Image
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <i className="fas fa-palette"></i> Art Style
+                            </label>
+                            <select
+                                className="p-3 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-base cursor-pointer focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 outline-none"
+                                value={style}
+                                onChange={(e) => setStyle(e.target.value)}
+                            >
+                                {artStyles.map(({ value, label }) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <i className="fas fa-crop-alt"></i> Aspect Ratio
+                            </label>
+                            <div className="flex flex-wrap gap-4">
+                                {ratios.map((r) => (
+                                    <button
+                                        key={r}
+                                        className={`p-2 px-4 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-base ${ratio === r ? 'bg-accent-primary text-white border-accent-primary' : ''} hover:bg-accent-primary hover:text-white hover:border-accent-primary transition-colors`}
+                                        onClick={() => setRatio(r)}
+                                    >
+                                        {r}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {showFilterAlert && (
+                        <div
+                            className="fixed top-20 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-red-600 text-white rounded-lg shadow-custom text-sm flex items-center gap-2 animate-fadeIn"
+                        >
+                            <i className="fas fa-shield-alt"></i> Content Filter: Inappropriate content detected. Please use appropriate language.
+                        </div>
+                    )}
+                </section>
+            );
+        };
+
+        const Result = ({ imageUrl }) => {
+            const downloadImage = async () => {
+                if (!imageUrl) return;
+                try {
+                    const response = await fetch(imageUrl);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `ahsan-labs-image-${Date.now()}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                    console.log('Download completed!');
+                } catch {
+                    console.error('Download failed.');
+                }
+            };
+
+            const copyImageLink = () => {
+                if (!imageUrl) return;
+                navigator.clipboard.writeText(imageUrl).then(() => {
+                    console.log('Link copied!');
+                }).catch(() => {
+                    console.error('Failed to copy link.');
+                });
+            };
+
+            const shareImage = () => {
+                if (!imageUrl) return;
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Ahsan Labs Image',
+                        text: 'Generated with Ahsan Labs Image Generator',
+                        url: imageUrl
+                    }).then(() => console.log('Shared successfully!'))
+                        .catch(() => console.error('Sharing failed.'));
+                } else {
+                    copyImageLink();
+                    console.log('Link copied for sharing!');
+                }
+            };
+
+            if (!imageUrl) return null;
+
+            return (
+                <section id="result-section" className="text-center my-10 animate-fadeIn max-w-7xl mx-auto">
+                    <img src={imageUrl} alt="AI Generated Image" className="max-w-full rounded-custom shadow-custom mb-6 mx-auto" />
+                    <div className="flex justify-center gap-6 flex-wrap">
+                        <button className="p-3 px-6 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-base flex items-center gap-2 hover:bg-accent-primary hover:text-white hover:border-accent-primary transition-colors" onClick={downloadImage}>
+                            <i className="fas fa-download"></i> Download
+                        </button>
+                        <button className="p-3 px-6 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-base flex items-center gap-2 hover:bg-accent-primary hover:text-white hover:border-accent-primary transition-colors" onClick={copyImageLink}>
+                            <i className="fas fa-link"></i> Copy Link
+                        </button>
+                        <button className="p-3 px-6 bg-bg-primary text-text-primary border border-text-muted rounded-lg text-base flex items-center gap-2 hover:bg-accent-primary hover:text-white hover:border-accent-primary transition-colors" onClick={shareImage}>
+                            <i className="fas fa-share-alt"></i> Share
+                        </button>
+                    </div>
+                </section>
+            );
+        };
+
+        const Features = () => (
+            <section className="py-12 text-center max-w-7xl mx-auto">
+                <h2 className="text-2xl md:text-3xl font-semibold text-text-primary mb-3">Powerful Features</h2>
+                <p className="text-text-muted max-w-2xl mx-auto mb-8 text-base">
+                    Discover the capabilities that make Ahsan Labs Image Generator exceptional.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-bg-secondary p-6 rounded-custom shadow-custom hover:-translate-y-1 transition-transform">
+                        <i className="fas fa-brain text-4xl text-accent-primary mb-4"></i>
+                        <h3 className="text-lg font-medium text-text-primary mb-2">Advanced AI</h3>
+                        <p className="text-sm text-text-muted">Generate high-quality images with cutting-edge AI technology.</p>
+                    </div>
+                    <div className="bg-bg-secondary p-6 rounded-custom shadow-custom hover:-translate-y-1 transition-transform">
+                        <i className="fas fa-bolt text-4xl text-accent-primary mb-4"></i>
+                        <h3 className="text-lg font-medium text-text-primary mb-2">Fast Generation</h3>
+                        <p className="text-sm text-text-muted">Create images in seconds with optimized performance.</p>
+                    </div>
+                    <div className="bg-bg-secondary p-6 rounded-custom shadow-custom hover:-translate-y-1 transition-transform">
+                        <i className="fas fa-shield-alt text-4xl text-accent-primary mb-4"></i>
+                        <h3 className="text-lg font-medium text-text-primary mb-2">Content Safety</h3>
+                        <p className="text-sm text-text-muted">Built-in filters ensure safe and appropriate outputs.</p>
+                    </div>
+                    <div className="bg-bg-secondary p-6 rounded-custom shadow-custom hover:-translate-y-1 transition-transform">
+                        <i className="fas fa-palette text-4xl text-accent-primary mb-4"></i>
+                        <h3 className="text-lg font-medium text-text-primary mb-2">Versatile Styles</h3>
+                        <p className="text-sm text-text-muted">Choose from a wide range of art styles to match your vision.</p>
+                    </div>
+                </div>
+            </section>
+        );
+
+        const Contact = () => (
+            <section className="p-8 bg-bg-secondary text-center rounded-custom shadow-custom my-8 max-w-7xl mx-auto">
+                <h2 className="text-2xl md:text-3xl font-semibold mb-3">Contact Us</h2>
+                <p className="text-text-muted max-w-2xl mx-auto mb-6 text-base">
+                    Connect with us for support or to stay updated with the latest features.
+                </p>
+                <div className="flex justify-center gap-6 flex-wrap">
+                    <a href="https://whatsapp.com/channel/0029Vb6cRL43GJOqdGUq4q0Q" target="_blank" className="p-3 px-6 bg-accent-primary text-white rounded-lg text-base font-medium flex items-center gap-2 hover:bg-accent-hover transition-colors">
+                        <i className="fab fa-whatsapp"></i> Join WhatsApp Channel
+                    </a>
+                    <a href="https://wa.me/923343926359
+" target="_blank" className="p-3 px-6 bg-accent-primary text-white rounded-lg text-base font-medium flex items-center gap-2 hover:bg-accent-hover transition-colors">
+                        <i className="fas fa-comment"></i> Message Owner
+                    </a>
+                </div>
+            </section>
+        );
+
+        const Footer = () => (
+            <footer className="py-8 bg-bg-secondary text-center">
+                <p className="text-sm text-text-muted">Made By Ahsan Labs</p>
+            </footer>
+        );
+
+        const App = () => {
+            const [generatedImage, setGeneratedImage] = useState('');
+            const [showSecurityAlert, setShowSecurityAlert] = useState(false);
+            const [shouldScroll, setShouldScroll] = useState(false); // New state to control scrolling
+            const headerRef = useRef(null);
+            const resultRef = useRef(null);
+
+            const triggerSecurityAlert = () => {
+                if (!showSecurityAlert) {
+                    setShowSecurityAlert(true);
+                    setTimeout(() => setShowSecurityAlert(false), 4000);
+                }
+            };
+
+            const scrollToResult = () => {
+                const attemptScroll = (attempts = 0) => {
+                    const resultSection = document.getElementById('result-section');
+                    if (resultSection && headerRef.current) {
+                        const headerHeight = headerRef.current.getBoundingClientRect().height || 64;
+                        const offsetTop = resultSection.getBoundingClientRect().top + window.scrollY - headerHeight - 20;
+                        console.log('Scrolling to:', { offsetTop, headerHeight, attempt: attempts + 1 });
+                        window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+                    } else if (attempts < 5) {
+                        console.log('Result section not found, retrying...', { attempt: attempts + 1 });
+                        setTimeout(() => attemptScroll(attempts + 1), 100);
+                    } else {
+                        console.error('Failed to scroll after 5 retries. Falling back to scrollIntoView.');
+                        resultSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                };
+                requestAnimationFrame(() => setTimeout(() => attemptScroll(), 600));
+            };
+
+            useEffect(() => {
+                const handleContextMenu = (e) => {
+                    e.preventDefault();
+                    triggerSecurityAlert();
+                };
+
+                const handleKeydown = (e) => {
+                    if (
+                        e.keyCode === 123 ||
+                        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) ||
+                        (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83))
+                    ) {
+                        e.preventDefault();
+                        triggerSecurityAlert();
+                    }
+                };
+
+                const handleCopy = (e) => {
+                    if (!e.target.matches('textarea, select')) {
+                        e.preventDefault();
+                        triggerSecurityAlert();
+                    }
+                };
+
+                const handleSelectStart = (e) => {
+                    if (!e.target.matches('textarea, select')) {
+                        e.preventDefault();
+                        triggerSecurityAlert();
+                    }
+                };
+
+                window.addEventListener('contextmenu', handleContextMenu);
+                window.addEventListener('keydown', handleKeydown);
+                document.addEventListener('copy', handleCopy);
+                document.addEventListener('selectstart', handleSelectStart);
+
+                return () => {
+                    window.removeEventListener('contextmenu', handleContextMenu);
+                    window.removeEventListener('keydown', handleKeydown);
+                    document.removeEventListener('copy', handleCopy);
+                    document.removeEventListener('selectstart', handleSelectStart);
+                };
+            }, []);
+
+            useEffect(() => {
+                if (generatedImage && shouldScroll) {
+                    scrollToResult();
+                    setShouldScroll(false); // Reset the flag after scrolling
+                    const observer = new MutationObserver(() => {
+                        if (document.getElementById('result-section')) {
+                            scrollToResult();
+                            observer.disconnect();
+                        }
+                    });
+                    observer.observe(document.body, { childList: true, subtree: true });
+
+                    return () => observer.disconnect();
+                }
+            }, [generatedImage, shouldScroll]);
+
+            const handleSetGeneratedImage = (imageUrl) => {
+                setGeneratedImage(imageUrl);
+                setShouldScroll(true); // Set flag to allow scrolling
+            };
+
+            return (
+                <div className="pt-16 px-4">
+                    <SecurityAlert show={showSecurityAlert} />
+                    <Header ref={headerRef} />
+                    <main>
+                        <Hero />
+                        <Generator setGeneratedImage={handleSetGeneratedImage} />
+                        <Result imageUrl={generatedImage} ref={resultRef} />
+                        <Features />
+                        <Contact />
+                    </main>
+                    <Footer />
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+
+</html>
